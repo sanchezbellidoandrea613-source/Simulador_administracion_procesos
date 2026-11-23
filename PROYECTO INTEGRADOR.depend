@@ -1,0 +1,89 @@
+# depslib dependency file v1.0
+1795149928 source:c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+	<conio.h>
+	<windows.h>
+	"proceso.h"
+	"hash.h"
+	"quicksort_cpu.h"
+	"quicksort_ram.h"
+
+1795148311 c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\proceso.h
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+
+1795149928 source:c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\proceso.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+	"proceso.h"
+
+1795029527 source:c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\hash.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	"hash.h"
+
+1795029527 c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\hash.h
+	"proceso.h"
+
+1793983380 c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\quicksort_cpu.h
+	<stdio.h>
+	<stdlib.h>
+	"proceso.h"
+
+1793983469 c:\users\elvis\onedrive\documentos\proyectos tomo\proyecto integrador\quicksort_ram.h
+	<stdio.h>
+	<stdlib.h>
+	"proceso.h"
+
+1795468712 source:c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\hash.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	"hash.h"
+
+1795468712 c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\hash.h
+	"proceso.h"
+
+1795468712 c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\proceso.h
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+
+1795468712 source:c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\proceso.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+	"proceso.h"
+
+1795468712 source:c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+	<conio.h>
+	<windows.h>
+	"proceso.h"
+	"hash.h"
+	"quicksort_cpu.h"
+	"quicksort_ram.h"
+
+1795468712 c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\quicksort_cpu.h
+	<stdio.h>
+	<stdlib.h>
+	"proceso.h"
+
+1795468712 c:\users\ramir\onedrive\documentos\andy\estructura\proyecto integrador\quicksort_ram.h
+	<stdio.h>
+	<stdlib.h>
+	"proceso.h"
+

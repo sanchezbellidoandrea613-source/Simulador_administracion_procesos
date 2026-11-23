@@ -28,147 +28,98 @@
    1. COLA DE PROCESOS
    ================================================== */
 
-/* Inicializa la cola sin elementos. */
+/* Cinco colas FIFO independientes; la prioridad decide QUE cola atender. */
 void inicializarCola(Cola *q) {
-    q->frente = NULL;
-    q->final = NULL;
+    int i;
+    for (i = 0; i < NUM_COLAS; i++) q->frente[i] = q->final[i] = NULL;
 }
-
-/* Devuelve 1 si la cola esta vacia y 0 si no. */
 int estaVacia(Cola *q) {
-    return q->frente == NULL;
+    int i;
+    if (!q) return 1;
+    for (i = 0; i < NUM_COLAS; i++) if (q->frente[i]) return 0;
+    return 1;
 }
-
-/* Agrega un proceso LISTO a la cola. */
-void encolarProceso(Cola *q, Proceso *proceso) {
-    Nodo *nuevo;
-
-    /* Verifica que los punteros sean validos. */
-    if (q == NULL || proceso == NULL) {
-        return;
-    }
-
-    /* No agrega procesos que ya esten en la cola. */
-    if (proceso->estado != ESTADO_LISTO ||
-        proceso->enCola) {
-        return;
-    }
-
-    /* Reserva memoria para el nodo de la cola. */
-    nuevo = (Nodo *)malloc(sizeof(Nodo));
-
-    /* Comprueba que se haya reservado memoria. */
-    if (nuevo == NULL) {
-        return;
-    }
-
-    /* Guarda la referencia al proceso original. */
-    nuevo->proceso = proceso;
-    nuevo->siguiente = NULL;
-
-    /* Si la cola esta vacia, sera el primer nodo. */
-    if (q->final == NULL) {
-        q->frente = nuevo;
-    } else {
-        q->final->siguiente = nuevo;
-    }
-
-    /* Actualiza el ultimo nodo de la cola. */
-    q->final = nuevo;
-
-    /* Marca el proceso como encolado. */
-    proceso->enCola = 1;
+void encolarProceso(Cola *q, Proceso *p) {
+    Nodo *n;
+    int nivel;
+    if (!q || !p || p->estado != ESTADO_LISTO || p->enCola) return;
+    nivel = p->nivelCola;
+    if (nivel < 0 || nivel >= NUM_COLAS) nivel = p->nivelCola = 0;
+    n = (Nodo *)malloc(sizeof(*n));
+    if (!n) return;
+    n->proceso = p;
+    n->siguiente = NULL;
+    if (q->final[nivel]) q->final[nivel]->siguiente = n;
+    else q->frente[nivel] = n;
+    q->final[nivel] = n;
+    p->enCola = 1;
+    p->entradaCola = time(NULL);
 }
-
-/*
- * Selecciona el proceso con mayor prioridad.
- *
- * IMPORTANTE:
- * Prioridad 1 = la mas alta.
- * Prioridad 5 = la mas baja.
- *
- * Si dos procesos tienen la misma prioridad,
- * se respeta el orden en que llegaron a la cola.
- */
-static Proceso *desencolarPorPrioridad(Cola *q) {
-    Nodo *actual;
-    Nodo *anterior = NULL;
-    Nodo *mejor;
-    Nodo *anteriorMejor = NULL;
-    Proceso *proceso;
-
-    /* Comprueba que haya procesos esperando. */
-    if (estaVacia(q)) {
-        return NULL;
+/* FIFO dentro del primer nivel no vacio: no se busca prioridad en una cola. */
+static Proceso *desencolarSiguiente(Cola *q) {
+    int i;
+    Nodo *n;
+    Proceso *p;
+    for (i = 0; i < NUM_COLAS; i++) {
+        if (!q->frente[i]) continue;
+        n = q->frente[i];
+        q->frente[i] = n->siguiente;
+        if (!q->frente[i]) q->final[i] = NULL;
+        p = n->proceso;
+        free(n);
+        p->enCola = 0;
+        return p;
     }
-
-    /* Inicialmente considera mejor al primer nodo. */
-    actual = q->frente;
-    mejor = q->frente;
-
-    /* Recorre todos los nodos buscando la prioridad. */
-    while (actual != NULL) {
-
-        /* El numero menor representa mayor prioridad. */
-        if (actual->proceso->prioridad <
-            mejor->proceso->prioridad) {
-
-            /* Guarda el proceso de mayor prioridad. */
-            mejor = actual;
-            anteriorMejor = anterior;
+    return NULL;
+}
+/* Extrae un proceso de su cola, conservando los demas en orden FIFO. */
+static void retirarDeCola(Cola *q, Proceso *p) {
+    int i;
+    for (i = 0; i < NUM_COLAS; i++) {
+        Nodo *n = q->frente[i], *ant = NULL;
+        while (n) {
+            if (n->proceso == p) {
+                if (ant) ant->siguiente = n->siguiente;
+                else q->frente[i] = n->siguiente;
+                if (q->final[i] == n) q->final[i] = ant;
+                free(n);
+                p->enCola = 0;
+                return;
+            }
+            ant = n;
+            n = n->siguiente;
         }
-
-        /* Continua recorriendo la cola. */
-        anterior = actual;
-        actual = actual->siguiente;
     }
-
-    /* Desconecta de la cola el nodo seleccionado. */
-    if (anteriorMejor == NULL) {
-        q->frente = mejor->siguiente;
-    } else {
-        anteriorMejor->siguiente = mejor->siguiente;
-    }
-
-    /* Actualiza el final si se extrajo el ultimo. */
-    if (q->final == mejor) {
-        q->final = anteriorMejor;
-    }
-
-    /* Obtiene el proceso seleccionado. */
-    proceso = mejor->proceso;
-
-    /* Libera el nodo, pero no el proceso original. */
-    free(mejor);
-
-    /* Marca que el proceso ya no esta en la cola. */
-    proceso->enCola = 0;
-
-    return proceso;
 }
-
-/* Libera todos los nodos de la cola. */
 void liberarCola(Cola *q) {
-    Nodo *actual = q->frente;
-
-    /* Recorre y libera cada nodo. */
-    while (actual != NULL) {
-        Nodo *siguiente = actual->siguiente;
-
-        /* Actualiza la marca del proceso. */
-        if (actual->proceso != NULL) {
-            actual->proceso->enCola = 0;
+    int i;
+    for (i = 0; i < NUM_COLAS; i++) {
+        Nodo *n = q->frente[i];
+        while (n) {
+            Nodo *sig = n->siguiente;
+            if (n->proceso) n->proceso->enCola = 0;
+            free(n);
+            n = sig;
         }
-
-        free(actual);
-        actual = siguiente;
+        q->frente[i] = q->final[i] = NULL;
     }
-
-    /* Deja la cola vacia. */
-    q->frente = NULL;
-    q->final = NULL;
 }
-
+/* Aging: subir un nivel despues de esperar 40 segundos en LISTO. */
+static void aplicarEnvejecimiento(Cola *q, Proceso *cabeza) {
+    Proceso *p;
+    time_t ahora = time(NULL);
+    for (p = cabeza; p; p = p->siguiente) {
+        if (p->estado == ESTADO_LISTO && p->enCola && p->nivelCola > 0 &&
+            difftime(ahora, p->entradaCola) >= SEGUNDOS_AGING) {
+            retirarDeCola(q, p);
+            p->nivelCola--;
+            p->prioridad = p->nivelCola + 1;
+            p->quantumConsumido = 0;
+            /* encolarProceso reinicia entradaCola: otros 40 s para otra promocion. */
+            encolarProceso(q, p);
+        }
+    }
+}
 
 /* ==================================================
    2. LISTA ENLAZADA DE PROCESOS
@@ -231,10 +182,15 @@ Proceso *crearProceso(
      * Asigna una prioridad aleatoria del 1 al 5.
      * El numero 1 representa la mayor prioridad.
      */
-    nuevo->prioridad = rand() % 5 + 1;
+    nuevo->prioridad = 1; /* Valor provisional; main asigna prioridad de solicitud. */
+    nuevo->prioridadOriginal = nuevo->prioridad;
+    nuevo->nivelCola = 0;
+    nuevo->quantumConsumido = 0;
+    nuevo->entradaCola = time(NULL);
 
     /* Inicializa el tiempo acumulado de CPU. */
     nuevo->tiempoCPUAcumulado = 0;
+    nuevo->proximaES = INTERVALO_ES;
 
     /* Inicializa la espera de entrada/salida. */
     nuevo->finEspera = 0;
@@ -371,100 +327,43 @@ void liberarListaProcesos(Proceso **cabeza) {
    3. PLANIFICADORES ROUND ROBIN Y PRIORIDAD
    ================================================== */
 
-/* MODIFICADO: prioridad 1 primero, Round Robin entre prioridades iguales.
- * Todos reciben un quantum maximo de 2 segundos. */
-void atenderProcesoUnicaPuerta(
-    Cola *q,
-    Puerta *cpu,
-    Proceso *cabeza
-) {
-    Proceso *proceso;
-    int duracion;
-    int hastaES;
+/* Las cinco colas usan Round Robin; la quinta rota sin descender. */
+static int quantumPorNivel(int nivel) {
+    static const int quantum[NUM_COLAS] = {
+        QUANTUM_ALTA, QUANTUM_MEDIA, QUANTUM_TERCERA, QUANTUM_CUARTA, QUANTUM_QUINTA
+    };
+    if (nivel < 0 || nivel >= NUM_COLAS) return 0;
+    return quantum[nivel];
+}
 
-    /* Se conserva el parametro original. */
-    (void)cabeza;
-
-    /* No selecciona otro si la CPU esta ocupada. */
-    if (cpu->ocupada || estaVacia(q)) {
+/* MLFQ de cinco prioridades, de 1 (alta) a 5 (baja). */
+void atenderProcesoUnicaPuerta(Cola *q, Puerta *cpu, Proceso *cabeza) {
+    Proceso *p;
+    int duracion, restanteQuantum;
+    aplicarEnvejecimiento(q, cabeza);
+    if (cpu->ocupada || estaVacia(q)) return;
+    p = desencolarSiguiente(q);
+    if (!p || p->estado != ESTADO_LISTO) return;
+    if (p->tiempoRestante <= 0) {
+        p->tiempoRestante = 0;
+        p->estado = ESTADO_FINALIZADO;
+        p->horaFin = time(NULL);
         return;
     }
-
-    /* MODIFICADO: siempre selecciona por prioridad y respeta FIFO en empates. */
-    proceso = desencolarPorPrioridad(q);
-
-    /* Comprueba que se encontro un proceso. */
-    if (proceso == NULL) {
-        return;
+    duracion = p->tiempoRestante;
+    {
+        restanteQuantum = quantumPorNivel(p->nivelCola) - p->quantumConsumido;
+        if (restanteQuantum < 1) restanteQuantum = 1;
+        if (duracion > restanteQuantum) duracion = restanteQuantum;
     }
-
-    /* Solo se pueden ejecutar procesos LISTOS. */
-    if (proceso->estado != ESTADO_LISTO) {
-        return;
-    }
-
-    /* Obtiene el trabajo pendiente del proceso. */
-    duracion = proceso->tiempoRestante;
-
-    /* Finaliza si ya no tiene trabajo por realizar. */
-    if (duracion <= 0) {
-        proceso->tiempoRestante = 0;
-        proceso->estado = ESTADO_FINALIZADO;
-        proceso->horaFin = time(NULL);
-        return;
-    }
-
-    /* MODIFICADO: quantum fijo para TODAS las prioridades. */
-    if (duracion > QUANTUM_RR) {
-        duracion = QUANTUM_RR;
-    }
-
-    /*
-     * Calcula cuanto falta para la siguiente E/S.
-     * Esta regla se aplica a ambos planificadores.
-     */
-    hastaES = INTERVALO_ES -
-        (proceso->tiempoCPUAcumulado % INTERVALO_ES);
-
-    /* El turno puede terminar antes por entrada/salida. */
-    if (hastaES < duracion) {
-        duracion = hastaES;
-    }
-
-    /* Marca la CPU como ocupada. */
+    /* Turno indivisible: la E/S no interrumpe el quantum en curso. */
     cpu->ocupada = 1;
-
-    /* Guarda el PID del proceso que se ejecutara. */
-    cpu->procesoActual = proceso->pid;
-
-    /* Guarda el nombre del proceso. */
-    strncpy(
-        cpu->nombreProceso,
-        proceso->nombre,
-        sizeof(cpu->nombreProceso) - 1
-    );
-
-    cpu->nombreProceso[
-        sizeof(cpu->nombreProceso) - 1
-    ] = '\0';
-
-    /* Guarda la operacion actual de la CPU. */
-    snprintf(
-        cpu->operacionActual,
-        sizeof(cpu->operacionActual),
-        "CPU: %.1f%%",
-        proceso->uso_cpu
-    );
-
-    /* Registra cuando inicia el turno. */
+    cpu->procesoActual = p->pid;
+    snprintf(cpu->nombreProceso, sizeof(cpu->nombreProceso), "%s", p->nombre);
+    snprintf(cpu->operacionActual, sizeof(cpu->operacionActual), "CPU: %.1f%%", p->uso_cpu);
     cpu->inicioAtencion = time(NULL);
-
-    /* Calcula cuando debe terminar el turno. */
-    cpu->finAtencion =
-        cpu->inicioAtencion + duracion;
-
-    /* El proceso comienza a ejecutarse. */
-    proceso->estado = ESTADO_EJECUTANDO;
+    cpu->finAtencion = cpu->inicioAtencion + duracion;
+    p->estado = ESTADO_EJECUTANDO;
 }
 
 /*
@@ -504,6 +403,9 @@ void actualizarPuerta(
         return;
     }
 
+    /* No expropiar por prioridad: un proceso nuevo o promovido por aging
+       debe esperar hasta que termine el turno del proceso actual. */
+    aplicarEnvejecimiento(q, cabeza);
     /* Limita el tiempo al final del turno. */
     limite = ahora;
 
@@ -511,11 +413,11 @@ void actualizarPuerta(
         limite = cpu->finAtencion;
     }
 
-    /* Calcula los segundos de CPU utilizados. */
-    transcurrido = (int)difftime(
-        limite,
-        cpu->inicioAtencion
-    );
+    /* Avanza exactamente una unidad de CPU por actualizacion.
+       Si el reloj salto varios segundos, los recupera en ciclos
+       separados sin descontarlos todos de golpe. */
+    transcurrido = (int)difftime(limite, cpu->inicioAtencion);
+    if (transcurrido > 1) transcurrido = 1;
 
     /* Evita tiempos negativos. */
     if (transcurrido < 0) {
@@ -532,12 +434,13 @@ void actualizarPuerta(
 
     /* Acumula el tiempo de CPU utilizado. */
     proceso->tiempoCPUAcumulado += transcurrido;
+    proceso->quantumConsumido += transcurrido;
 
     /* Evita contar dos veces el mismo segundo. */
-    cpu->inicioAtencion = limite;
+    cpu->inicioAtencion += transcurrido;
 
     /* Si el turno continua, no cambia de proceso. */
-    if (ahora < cpu->finAtencion) {
+    if (cpu->inicioAtencion < cpu->finAtencion) {
         return;
     }
 
@@ -560,10 +463,19 @@ void actualizarPuerta(
      * El proceso debe realizar entrada/salida.
      */
     } else if (
-        proceso->tiempoCPUAcumulado > 0 &&
-        proceso->tiempoCPUAcumulado % INTERVALO_ES == 0
+        proceso->tiempoCPUAcumulado >= proceso->proximaES
     ) {
 
+        /* Se conserva el consumo del quantum entre bloqueos de E/S,
+           para permitir que eventualmente se alcance el umbral del nivel. */
+        if (proceso->quantumConsumido >= quantumPorNivel(proceso->nivelCola)) {
+            if (proceso->nivelCola < NUM_COLAS - 1) proceso->nivelCola++;
+            proceso->prioridad = proceso->nivelCola + 1;
+            proceso->quantumConsumido = 0;
+        }
+        /* Reprograma el siguiente evento de E/S para otro turno. */
+        while (proceso->proximaES <= proceso->tiempoCPUAcumulado)
+            proceso->proximaES += INTERVALO_ES;
         /* Cambia el estado a ESPERA. */
         proceso->estado = ESTADO_ESPERA;
 
@@ -579,6 +491,13 @@ void actualizarPuerta(
         /* Vuelve a estar listo. */
         proceso->estado = ESTADO_LISTO;
 
+        /* Si agoto su quantum, baja de nivel o rota en cola 5.
+           Si fue desalojado, conserva el quantum restante. */
+        if (proceso->quantumConsumido >= quantumPorNivel(proceso->nivelCola)) {
+            if (proceso->nivelCola < NUM_COLAS - 1) proceso->nivelCola++;
+            proceso->prioridad = proceso->nivelCola + 1;
+            proceso->quantumConsumido = 0;
+        }
         /* Regresa a la cola para otro turno. */
         encolarProceso(q, proceso);
     }
@@ -772,13 +691,14 @@ static void mostrarFilaProceso(Proceso *proceso) {
      */
     printf(
         "%-6d %-12.12s %-15.15s %5.1f %8.0f "
-        "%5d %4d %-9s %-10s\n",
+        "%5d %4d %4d %-9s %-10s\n",
         proceso->pid,
         proceso->usuario,
         proceso->nombre,
         proceso->uso_cpu,
         proceso->uso_ram,
         proceso->hilos,
+        proceso->prioridadOriginal,
         proceso->prioridad,
         tiempo,
         nombreEstado(proceso->estado)
@@ -969,7 +889,7 @@ void mostrarHtop(
     );
 
     /* MODIFICADO: un solo planificador con quantum fijo. */
-    printf("Planificador: ROUND ROBIN CON PRIORIDAD (quantum: %d s)\n", QUANTUM_RR);
+    printf("MLFQ | C1 RR 4s | C2 RR 8s | C3 RR 12s | C4 RR 16s | C5 RR 20s | Aging 40s\n");
 
     /* Muestra los contadores de procesos activos. */
     printf(
@@ -1023,13 +943,14 @@ void mostrarHtop(
      */
     printf(
         "%-6s %-12s %-15s %5s %8s "
-        "%5s %4s %-9s %-10s\n",
+        "%5s %4s %4s %-9s %-10s\n",
         "PID",
         "USUARIO",
         "PROCESO",
         "CPU%",
         "RAM(MB)",
         "HILOS",
+        "ORIG",
         "PRIO",
         "RESTANTE",
         "ESTADO"
@@ -1049,20 +970,15 @@ void mostrarHtop(
     /* MODIFICADO: primero aparece el proceso que ocupa la CPU. */
     agregarFila(filas, &cantidadFilas, procesoCPU);
 
-    /* CONSERVADO: en prioridad, los LISTOS se muestran por prioridad
-     * ascendente; el planificador real no se modifica. */
-    { /* MODIFICADO: orden por prioridad y FIFO para empates. */
+    /* Mostrar los listos por colas reales, respetando FIFO en cada nivel. */
+    {
         int nivel;
-        for (nivel = 1; nivel <= 5; nivel++) {
-            Nodo *nodoActual = (q != NULL) ? q->frente : NULL;
-            /* MODIFICADO: recorrer la cola preserva el orden FIFO
-             * entre procesos que tienen la misma prioridad. */
-            while (nodoActual != NULL && cantidadFilas < MAX_FILAS_HTOP) {
-                if (nodoActual->proceso != NULL &&
-                    nodoActual->proceso->estado == ESTADO_LISTO &&
-                    nodoActual->proceso->prioridad == nivel) {
+        for (nivel = 0; nivel < NUM_COLAS; nivel++) {
+            Nodo *nodoActual = q ? q->frente[nivel] : NULL;
+            while (nodoActual && cantidadFilas < MAX_FILAS_HTOP) {
+                if (nodoActual->proceso &&
+                    nodoActual->proceso->estado == ESTADO_LISTO)
                     agregarFila(filas, &cantidadFilas, nodoActual->proceso);
-                }
                 nodoActual = nodoActual->siguiente;
             }
         }
@@ -1107,11 +1023,11 @@ void mostrarHtop(
         while (pendiente != NULL && cantidadFilas < MAX_FILAS_HTOP) {
             char restante[20];
             convertirTiempo(pendiente->datos.tiempo, restante, sizeof(restante));
-            printf("%-6d %-12.12s %-15.15s %5.1f %8.0f %5d %4d %-9s %-10s\n",
+            printf("%-6d %-12.12s %-15.15s %5.1f %8.0f %5d %4d %4d %-9s %-10s\n",
                    pendiente->datos.pid, pendiente->datos.usuario,
                    pendiente->datos.nombre, pendiente->datos.cpu,
                    pendiente->datos.ram, pendiente->datos.hilos,
-                   pendiente->datos.prioridad, restante, "ESP");
+                   pendiente->datos.prioridad, pendiente->datos.prioridad, restante, "ESP");
             cantidadFilas++;
             pendiente = pendiente->siguiente;
         }

@@ -316,7 +316,7 @@ int main(void) {
             solicitud.usuario = usuarios[rand() % totalUsuarios];
             solicitud.hilos = rand() % 8 + 1;
             solicitud.tiempo = rand() % 16 + 5;
-            solicitud.prioridad = rand() % 5 + 1; /* NUEVO: prioridad desde la llegada. */
+            solicitud.prioridad = rand() % NUM_COLAS + 1; /* Prioridad inicial 1..5. */
             solicitud.llegada = ahora;
             generados++;
 
@@ -358,7 +358,9 @@ int main(void) {
                 nuevoP->horaCreacion = solicitud->llegada;
                 nuevoP->horaFin = 0;
                 nuevoP->tiempoRestante = solicitud->tiempo;
-                nuevoP->prioridad = solicitud->prioridad; /* Conserva prioridad de ESP. */
+                nuevoP->prioridad = solicitud->prioridad;
+                nuevoP->prioridadOriginal = solicitud->prioridad;
+                nuevoP->nivelCola = solicitud->prioridad - 1;
                 insertarHash(nuevoP);
                 encolarProceso(&unifila, nuevoP);
             }

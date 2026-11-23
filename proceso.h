@@ -12,9 +12,15 @@
 #define ESTADO_SUSPENDIDO 'T'
 #define ESTADO_FINALIZADO 'F'
 
-/* MODIFICADO: planificador unico con quantum igual para todos. */
+/* Planificador MLFQ: cinco colas RR con quantum creciente. */
 #define PLANIFICADOR_RR_PRIORIDAD 1
-#define QUANTUM_RR 2
+#define QUANTUM_ALTA 4
+#define QUANTUM_MEDIA 8
+#define QUANTUM_TERCERA 12
+#define QUANTUM_CUARTA 16
+#define QUANTUM_QUINTA 20
+#define SEGUNDOS_AGING 40
+#define NUM_COLAS 5
 
 /* NUEVO: solicitudes en espera de RAM, sin ocupar RAM simulada. */
 typedef struct {
@@ -45,10 +51,15 @@ typedef struct Proceso {
     time_t horaCreacion;
     time_t horaFin;
     int tiempoRestante;
-    int prioridad;
+    int prioridad; /* prioridad actual usada por el planificador */
+    int prioridadOriginal; /* prioridad asignada al ingresar */
     int tiempoCPUAcumulado;
+    int proximaES; /* Siguiente umbral de E/S, revisado al terminar el turno */
     time_t finEspera;
     int enCola;
+    int nivelCola; /* 0 a 4: prioridades 1 a 5 */
+    int quantumConsumido; /* CPU gastada desde el ultimo cambio de nivel */
+    time_t entradaCola;
     struct Proceso *siguiente;
 } Proceso;
 
@@ -58,8 +69,8 @@ typedef struct Nodo {
 } Nodo;
 
 typedef struct {
-    Nodo *frente;
-    Nodo *final;
+    Nodo *frente[NUM_COLAS];
+    Nodo *final[NUM_COLAS];
 } Cola;
 
 typedef struct {

@@ -1,9 +1,31 @@
+
 #ifndef QUICKSORT_RAM_H_INCLUDED
 #define QUICKSORT_RAM_H_INCLUDED
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "proceso.h"
+
+/* MODIFICADO: convierte el estado interno en su etiqueta visible. */
+static const char *estadoVisibleRAM(char estado) {
+
+    switch (estado) {
+        case ESTADO_LISTO:
+            return "L";
+
+        case ESTADO_EJECUTANDO:
+            return "R";
+
+        case ESTADO_ESPERA:
+            return "E/S";
+
+        case ESTADO_FINALIZADO:
+            return "F";
+
+        default:
+            return "?";
+    }
+}
 
 /* Intercambia dos punteros a procesos. */
 static void intercambiarRAM(Proceso **a, Proceso **b) {
@@ -24,17 +46,14 @@ static int particionarRAM(Proceso **arreglo, int inicio, int fin) {
 
     while (i <= j) {
 
-        // Busca valores mayores que el pivote.
         while (arreglo[i]->uso_ram > pivote) {
             i++;
         }
 
-        // Busca valores menores que el pivote.
         while (arreglo[j]->uso_ram < pivote) {
             j--;
         }
 
-        // Intercambia los elementos.
         if (i <= j) {
 
             intercambiarRAM(&arreglo[i], &arreglo[j]);
@@ -132,12 +151,13 @@ void ordenarProcesosPorRAM(Proceso *cabeza) {
 
     for (i = 0; i < cantidad; i++) {
 
-        printf("%-8d %-16.16s %-12.1f %-12.0f %-10c\n",
+        /* MODIFICADO: muestra la etiqueta del estado y no el carácter interno. */
+        printf("%-8d %-16.16s %-12.1f %-12.0f %-10s\n",
                arreglo[i]->pid,
                arreglo[i]->nombre,
                arreglo[i]->uso_cpu,
                arreglo[i]->uso_ram,
-               arreglo[i]->estado);
+               estadoVisibleRAM(arreglo[i]->estado));
     }
 
     printf("\nTotal de procesos: %d\n", cantidad);

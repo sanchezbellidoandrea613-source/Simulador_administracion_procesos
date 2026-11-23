@@ -1,9 +1,31 @@
+
 #ifndef QUICKSORT_CPU_H_INCLUDED
 #define QUICKSORT_CPU_H_INCLUDED
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "proceso.h"
+
+/* MODIFICADO: convierte el estado interno en su etiqueta visible. */
+static const char *estadoVisibleCPU(char estado) {
+
+    switch (estado) {
+        case ESTADO_LISTO:
+            return "L";
+
+        case ESTADO_EJECUTANDO:
+            return "R";
+
+        case ESTADO_ESPERA:
+            return "E/S";
+
+        case ESTADO_FINALIZADO:
+            return "F";
+
+        default:
+            return "?";
+    }
+}
 
 /* Intercambia dos punteros a procesos. */
 static void intercambiarCPU(Proceso **a, Proceso **b) {
@@ -22,17 +44,14 @@ static int particionarCPU(Proceso **arreglo, int inicio, int fin) {
 
     while (i <= j) {
 
-        // Busca valores mayores que el pivote.
         while (arreglo[i]->uso_cpu > pivote) {
             i++;
         }
 
-        // Busca valores menores que el pivote.
         while (arreglo[j]->uso_cpu < pivote) {
             j--;
         }
 
-        // Intercambia los elementos cuando es necesario.
         if (i <= j) {
             intercambiarCPU(&arreglo[i], &arreglo[j]);
             i++;
@@ -119,12 +138,13 @@ void ordenarProcesosPorCPU(Proceso *cabeza) {
 
     for (i = 0; i < cantidad; i++) {
 
-        printf("%-8d %-16.16s %-12.1f %-12.0f %-10c\n",
+        /* MODIFICADO: muestra la etiqueta del estado y no el carácter interno. */
+        printf("%-8d %-16.16s %-12.1f %-12.0f %-10s\n",
                arreglo[i]->pid,
                arreglo[i]->nombre,
                arreglo[i]->uso_cpu,
                arreglo[i]->uso_ram,
-               arreglo[i]->estado);
+               estadoVisibleCPU(arreglo[i]->estado));
     }
 
     printf("\nTotal de procesos: %d\n", cantidad);
